@@ -1,0 +1,4 @@
+[tool.ruff]
+# No general line-length option is available for the formatter.
+# If you want to set line length for docstring code blocks, use:
+line-length = 120
