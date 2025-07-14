@@ -44,7 +44,7 @@ class MPS:
         """Calculate effective two-site wave function on sites i,j=(i+1) in mixed canonical form.
 
         The returned array has legs ``vL, i, j, vR``."""
-        j = i + 1
+        j = (i + 1) % self.L
         return np.tensordot(self.get_theta1(i), self.Bs[j], [2, 0])  # vL i [vR], [vL] j vR
 
     def get_chi(self):
@@ -75,8 +75,8 @@ class MPS:
     def entanglement_entropy(self):
         """Return the (von-Neumann) entanglement entropy for a bipartition at any of the bonds."""
         result = []
-        for i in range(1, self.L):
-            S = self.Ss[i].copy()
+        for i in range(1, self.L + 1):
+            S = self.Ss[i % self.L].copy()
             S = S[S > 1e-30]  # 0*log(0) should give 0; avoid warnings or NaN by discarding small S
             S2 = S * S
             assert abs(np.linalg.norm(S) - 1.0) < 1.0e-14
@@ -86,9 +86,11 @@ class MPS:
     def apply_operator(self, op: np.ndarray, site: int) -> None:
         """Apply a local operator to the MPS at a given site."""
         assert site < self.L, "Site index out of bounds"
-        theta = self.get_theta1(site)
-        op_theta = np.tensordot(op, theta, axes=[1, 1])  # i [i*], vL [i] vR
-        op_theta = np.transpose(op_theta, (1, 0, 2))  # [i*] i vL vR
+        print(f"Applying operator at site {site} with shape {op.shape}")
+        op_B = np.tensordot(op, self.Bs[site], axes=([1], [1]))  # i [i*] vL [i] vR -> i [i*] vL vR
+        op_B = np.transpose(op_B, (1, 0, 2))  # vL i vR
+        op_B = np.where(np.abs(op_B) < 1e-12, 0, op_B)
+        self.Bs[site] = op_B / np.linalg.norm(op_B)
 
 
 def init_spinup_MPS(L):
