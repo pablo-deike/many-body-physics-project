@@ -5,11 +5,12 @@ import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 
 if __name__ == "__main__":
-    L = 4  # Number of sites
+    L = 2  # Number of sites
     # bell_state = np.array([1, 0, 0, 1]) / np.sqrt(2)  # Bell state |Φ+⟩ = (|00⟩ + |11⟩) / √2
 
-    circuit = Circuit(L=L, p=0.5, initial_state=State(L))
-    circuit.state.create_all_measurement_sigz()
+    circuit = Circuit(L=L, p=0.0)
+    print("Entanglement entropy of the initial state:")
+    print(circuit.state.entanglement_entropy())
     circuit.full_circuit_evolution(t=10)
 
     print("Final state after applying the circuit:")

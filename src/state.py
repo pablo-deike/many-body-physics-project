@@ -13,37 +13,46 @@ class State:
             if len(array) != self.dim:
                 raise ValueError(f"State must have length {self.dim}, got {len(array)}")
             self.array = np.array(array, dtype=np.complex128)
+        self.array = self.array.flatten()
+        self.array = np.reshape(self.array, [2]*L)
 
     def init_all_zeros(self) -> None:
         # maybe it´s a good idea for the future to considere it in a binary state
         self.array = np.zeros(self.dim)
         self.array[0] = 1  # |00...0⟩ state
 
-    def create_all_measurement_sigz(self) -> None:
+    # def create_all_measurement_sigz(self) -> None:
+    #     sigz = np.array([[1, 0], [0, -1]])
+    #     all_ops = []
+    #     for site in range(self.L):
+    #         ops = []
+    #         for i in range(self.L):
+    #             if i == site:
+    #                 ops.append(csr_matrix(sigz))
+    #             else:
+    #                 ops.append(identity(2, format="csr"))
+    #         sigz_op = ops[0]
+    #         for op in ops[1:]:
+    #             sigz_op = kron(sigz_op, op, format="csr")
+    #         all_ops.append(sigz_op)
+    #     self.sigz_op = all_ops
+
+    def create_sigz_measurement(self) -> None:
         sigz = np.array([[1, 0], [0, -1]])
-        all_ops = []
-        for site in range(self.L):
-            ops = []
-            for i in range(self.L):
-                if i == site:
-                    ops.append(csr_matrix(sigz))
-                else:
-                    ops.append(identity(2, format="csr"))
-            sigz_op = ops[0]
-            for op in ops[1:]:
-                sigz_op = kron(sigz_op, op, format="csr")
-            all_ops.append(sigz_op)
-        self.sigz_op = all_ops
+        global_op = sigz
+        for i in range(self.L- 1):
+            global_op = np.kron(global_op, sigz)
+        self.sigz_op = np.reshape(global_op, [2, 2]*self.L)
 
     def expectation_value(self, op: NDArray) -> float:
         """Calculate expectation value of a local operator."""
         return np.real(np.vdot(self.array, op @ self.array))
 
-    def apply_site_operator(self, op: NDArray) -> None:
+    def apply_site_operator(self, op: NDArray, site: int) -> None:
         if not hasattr(self, "sigz_op"):
             raise ValueError("sigz operator not defined. Call measure_sigz first.")
-        self.array = op @ self.array
-        self.array = self.array.flatten()
+        op_site = np.tensordot(self.array, op, axes=([site], [1])) # ... [j] ... i [i*]
+        op_site = np.transpose(op_site, ([*range(site)] + [*range(self.L - 1, self.L)] + [*range(site, self.L - 1)]))
         self.array = self.array / np.linalg.norm(self.array)
 
     def apply_U_gate(self, U: np.ndarray) -> None:
@@ -69,7 +78,8 @@ class State:
         diag = np.diag(rho_A)
         # Avoid log2(0) by setting log2(0) = 0 for zero diagonal elements
         entropy_terms = np.where(diag > 0, diag * np.log2(diag), 0)
+        # entropy_terms = np.where(eigenvalues > 0, eigenvalues * np.log2(eigenvalues), 0)
         return np.real_if_close(-np.sum(entropy_terms))
 
     def construct_density_matrix(self) -> NDArray:
-        return np.outer(self.array, np.conj(self.array))
+        return np.outer(np.conj(self.array), self.array)

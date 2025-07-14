@@ -21,7 +21,8 @@ class Circuit:
             self.state = State(L)
         else:
             self.state = deepcopy(initial_state)
-        self.state.create_all_measurement_sigz()
+        # self.state.create_all_measurement_sigz()
+        self.state.create_sigz_measurement()
         self.create_U_even_gate()
         self.create_U_odd_gate()
 
@@ -36,7 +37,7 @@ class Circuit:
         global_op = ops[0]
         for op in ops[1:]:
             global_op = np.kron(global_op, op)
-        self.U_even = global_op
+        self.U_even = np.reshape(global_op, [2, 2] * self.L)
 
     def create_U_odd_gate(self) -> None:
         I = np.eye(2)
@@ -49,7 +50,7 @@ class Circuit:
         global_op = ops[0]
         for op in ops[1:]:
             global_op = np.kron(global_op, op)
-        self.U_odd = global_op
+        self.U_odd = np.reshape(global_op, [2, 2] * self.L)
 
     def apply_U_gate(self, even: bool = True) -> None:
         """Apply the unitary operator U to the state."""
@@ -58,23 +59,33 @@ class Circuit:
         else:
             self.state.apply_U_gate(self.U_odd)
 
-    def apply_gate(self, U: NDArray, r: int, unitary: bool = True) -> None:
+    def apply_gate(self, U: NDArray, r: int, unitary: bool = True) -> NDArray:
         l = len(U.shape) // 2
-        self.state.array = np.tensordot(self.state.array, U, axes=(range(r, r + l), range(l, 2 * l)))
-        self.state.array = np.transpose(
-            self.state.array, ([*range(r)] + [*range(self.L - l, self.L)] + [*range(r, self.L - l)])
+        intermediate_op = np.tensordot(self.state.array, U, axes=(range(r, r + l), range(l, 2 * l)))
+        intermediate_op = np.transpose(
+            intermediate_op, ([*range(r)] + [*range(self.L - l, self.L)] + [*range(r, self.L - l)])
         )
         if unitary is True:
-            return
-        self.state.array = self.state.array / np.linalg.norm(self.state.array)
+            return intermediate_op
+        return intermediate_op / np.linalg.norm(self.state.array)
 
-    def apply_random_sigz_measurement(self, site: int) -> None:
-        prob = self.state.expectation_value(self.state.sigz_op[site])
-        if np.random.rand() < self.p:
+    def expectation_value(self, op: NDArray) -> float:
+        """Calculate expectation value of a local operator."""
+        expectation_right = self.apply_gate(op, 0, unitary=False)
+        expectation_left = np.vdot(self.state.array, expectation_right)
+        return np.real_if_close(expectation_left)
+
+    def apply_random_sigz_measurement(self) -> None:
+        # prob = (1 + self.state.expectation_value(self.state.sigz_op[site])) / 2
+        sigz = np.array([[1, 0], [0, -1]])
+        prob = (1 + self.expectation_value(self.state.sigz_op)) / 2
+        mask = np.random.rand(self.L) < self.p
+        sites = np.where(mask)[0]
+        for site in sites:
             if np.random.rand() < prob:
-                self.state.apply_site_operator((1 + self.state.sigz_op[site].toarray()) / 2)
+                self.state.apply_site_operator((1 + sigz) / 2, site)
             else:
-                self.state.apply_site_operator((1 - self.state.sigz_op[site].toarray()) / 2)
+                self.state.apply_site_operator((1 - sigz) / 2, site)
 
     def full_circuit_evolution(self, t: int) -> None:
         """Perform full circuit evolution for t time steps.
@@ -82,9 +93,7 @@ class Circuit:
         random measurements on the sites with a probability p.
         """
         for _ in range(0, t, 2):
-            self.apply_U_gate(even=True)
-            for site in range(self.L):
-                self.apply_random_sigz_measurement(site)
-            self.apply_U_gate(even=False)
-            for site in range(self.L):
-                self.apply_random_sigz_measurement(site)
+            self.state.array = self.apply_gate(self.U_even, 0)
+            self.apply_random_sigz_measurement()
+            self.state.array = self.apply_gate(self.U_odd, 0)
+            self.apply_random_sigz_measurement()
