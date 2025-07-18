@@ -6,3 +6,5 @@
 *.pyd
 *.pkl
 *.pyd
+*.png
+*.csv

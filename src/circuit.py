@@ -52,17 +52,15 @@ class Circuit:
             global_op = np.kron(global_op, op)
         self.U_global_odd = np.reshape(global_op, [2, 2] * self.L)
 
-    def apply_U_gate(self, even: bool = True) -> None:
-        """Apply the unitary operator U to the state."""
-        if even:
-            self.state.apply_U_gate(self.U_global_even)
-        else:
-            self.state.apply_U_gate(self.U_global_odd)
-
     def apply_gate(self, U: NDArray, r: int, unitary: bool = True) -> NDArray:
         l = len(U.shape) // 2
-        intermediate_op = np.tensordot(self.state.array, U, axes=(range(r, r + l), range(l, 2 * l)))
-        intermediate_op = np.transpose(
+        if r == self.L - 1 and l == 2:
+            # Special case for the last site
+            intermediate_op = np.tensordot(self.state.array, U, axes=([self.L - 1, 0], range(l, 2*l)))
+            intermediate_op = np.transpose(intermediate_op, ([self.L- 1] + [*range(r)]))
+        else:
+            intermediate_op = np.tensordot(self.state.array, U, axes=(range(r, r + l), range(l, 2 * l)))
+            intermediate_op = np.transpose(
             intermediate_op, ([*range(r)] + [*range(self.L - l, self.L)] + [*range(r, self.L - l)])
         )
         if unitary is True:
@@ -76,7 +74,6 @@ class Circuit:
         return np.real_if_close(expectation_left)
 
     def apply_random_sigz_measurement(self) -> None:
-        # prob = (1 + self.state.expectation_value(self.state.sigz_op[site])) / 2
         sigz = np.array([[1, 0], [0, -1]])
         mask = np.random.rand(self.L) < self.p
         sites = np.where(mask)[0]
@@ -93,20 +90,17 @@ class Circuit:
         random measurements on the sites with a probability p.
         """
         for _ in range(t):
-            # Generate a fresh random unitary for each time step
-            U_random = scipy.stats.unitary_group(dim=4).rvs()  # Full 4x4 two-qubit gate
+            U_random = scipy.stats.unitary_group(dim=4).rvs()
             U_gate = U_random.reshape([2, 2, 2, 2])
             
-            # Apply gates to even pairs (0,1), (2,3), etc.
-            for site in range(0, self.L-1, 2):
+            # Apply gates to even pairs
+            for site in range(0, self.L, 2):
                 self.state.array = self.apply_gate(U_gate, site)
-            
-            # Apply random measurements
+        
             self.apply_random_sigz_measurement()
             
-            # Apply gates to odd pairs (1,2), (3,4), etc.
-            for site in range(1, self.L-1, 2):
-                self.state.array = self.apply_gate(U_gate, site)
+            # Apply gates to odd pairs 
+            for site in range(1, self.L+1, 2):
+                self.state.array = self.apply_gate(U_gate, site % self.L)
             
-            # Apply random measurements
             self.apply_random_sigz_measurement()
