@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from numpy.typing import NDArray
 
 if __name__ == "__main__":
-    L = 2  # Number of sites
+    L = 4  # Number of sites
     # bell_state = np.array([1, 0, 0, 1]) / np.sqrt(2)  # Bell state |Φ+⟩ = (|00⟩ + |11⟩) / √2
 
     circuit = Circuit(L=L, p=0.0)

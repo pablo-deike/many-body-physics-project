@@ -53,9 +53,9 @@ class State:
             raise ValueError("sigz operator not defined. Call measure_sigz first.")
         op_site = np.tensordot(self.array, op, axes=([site], [1])) # ... [j] ... i [i*]
         op_site = np.transpose(op_site, ([*range(site)] + [*range(self.L - 1, self.L)] + [*range(site, self.L - 1)]))
-        self.array = self.array / np.linalg.norm(self.array)
+        self.array = op_site / np.linalg.norm(op_site)
 
-    def apply_U_gate(self, U: np.ndarray) -> None:
+    def apply_U_gate(self, U: NDArray) -> None:
         self.array = U @ self.array
 
     def entanglement_entropy(self, subsystem_size: int | None = None) -> float:  # hacerlo con SVD
