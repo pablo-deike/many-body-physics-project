@@ -58,28 +58,28 @@ class State:
     def apply_U_gate(self, U: NDArray) -> None:
         self.array = U @ self.array
 
-    def entanglement_entropy(self, subsystem_size: int | None = None) -> float:  # hacerlo con SVD
+    def entanglement_entropy(self, subsystem_size: int | None = None) -> float:
         """Calculate von Neumann entanglement entropy for a bipartition"""
         if subsystem_size is None:
             subsystem_size = self.L // 2
+        
+        # Reshape state for proper bipartition
         dim_A = 2**subsystem_size
-        dim_B = 2 ** (self.L - subsystem_size)
-        total_density_matrix = self.construct_density_matrix().reshape((dim_A, dim_B, dim_A, dim_B))
-
-        # Compute reduced density matrix by tracing out subsystem B
-        # ρ_A = state_matrix @ state_matrix.conj().T
-        rho_A = np.trace(total_density_matrix, axis1=1, axis2=3)
-
-        # Get eigenvalues of reduced density matrix
-        eigenvalues = np.real_if_close(np.linalg.eigvalsh(rho_A))
-        eigenvalues = eigenvalues[eigenvalues > 1e-12]
-
-        # Calculate von Neumann entropy
-        diag = np.diag(rho_A)
-        # Avoid log2(0) by setting log2(0) = 0 for zero diagonal elements
-        entropy_terms = np.where(diag > 0, diag * np.log2(diag), 0)
-        # entropy_terms = np.where(eigenvalues > 0, eigenvalues * np.log2(eigenvalues), 0)
-        return np.real_if_close(-np.sum(entropy_terms))
+        dim_B = 2**(self.L - subsystem_size)
+        
+        # Flatten the state array and reshape for bipartition
+        state_flat = self.array.flatten()
+        state_matrix = state_flat.reshape((dim_A, dim_B))
+        
+        # Compute reduced density matrix by SVD (more numerically stable)
+        U, s, Vh = np.linalg.svd(state_matrix, full_matrices=False)
+        
+        # Schmidt coefficients are the singular values
+        schmidt_coeffs = s[s > 1e-12]  # Filter out numerical zeros
+        
+        # Calculate von Neumann entropy from Schmidt coefficients
+        entropy_terms = schmidt_coeffs**2 * np.log2(schmidt_coeffs**2)
+        return -np.sum(entropy_terms)
 
     def construct_density_matrix(self) -> NDArray:
         return np.outer(np.conj(self.array), self.array)
