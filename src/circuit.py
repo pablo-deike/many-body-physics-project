@@ -92,24 +92,21 @@ class Circuit:
         This method applies the unitary operator U to pairs of sites and performs
         random measurements on the sites with a probability p.
         """
-        I = np.eye(2)
-        P0 = np.array([[1, 0], [0, 0]])
-        P1 = np.array([[0, 0], [0, 1]])
-        for _ in range(0, t, 2):
-            # Generate fresh random unitaries for each time step
-            U_random_even = scipy.stats.unitary_group(dim=2).rvs()
-            U_random_odd = scipy.stats.unitary_group(dim=2).rvs()
-
-            # Create proper two-qubit gates
-            U_even = (np.kron(P0, U_random_even) + np.kron(P1, I)).reshape([2, 2, 2, 2])
-            U_odd = (np.kron(I, P0) + np.kron(U_random_odd, P1)).reshape([2, 2, 2, 2])
-
-            # Apply even gates to pairs (0,1), (2,3), etc.
-            for site in range(0, self.L-1, 2):  # Changed from self.L to self.L-1
-                self.state.array = self.apply_gate(U_even, site)
+        for _ in range(t):
+            # Generate a fresh random unitary for each time step
+            U_random = scipy.stats.unitary_group(dim=4).rvs()  # Full 4x4 two-qubit gate
+            U_gate = U_random.reshape([2, 2, 2, 2])
+            
+            # Apply gates to even pairs (0,1), (2,3), etc.
+            for site in range(0, self.L-1, 2):
+                self.state.array = self.apply_gate(U_gate, site)
+            
+            # Apply random measurements
             self.apply_random_sigz_measurement()
-
-            # Apply odd gates to pairs (1,2), (3,4), etc.
+            
+            # Apply gates to odd pairs (1,2), (3,4), etc.
             for site in range(1, self.L-1, 2):
-                self.state.array = self.apply_gate(U_odd, site)
+                self.state.array = self.apply_gate(U_gate, site)
+            
+            # Apply random measurements
             self.apply_random_sigz_measurement()
