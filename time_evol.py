@@ -1,8 +1,5 @@
 import numpy as np
-from src.state import State
 from src.circuit import Circuit
-import matplotlib.pyplot as plt
-from numpy.typing import NDArray
 
 if __name__ == "__main__":
     Ls = [4, 6, 8, 10]
@@ -25,18 +22,21 @@ if __name__ == "__main__":
         for j in range(n_circuits):
             for i in range(steps + 1):
                 for k in range(n_prob):
-                    data_list.append([
-                        L,                           # System size
-                        i,                           # Time step
-                        j,                           # Circuit number
-                        p[k],                        # Probability
-                        entropies[l_idx, j, i, k]    # Entropy value
-                    ])
+                    data_list.append(
+                        [
+                            L,  # System size
+                            i,  # Time step
+                            j,  # Circuit number
+                            p[k],  # Probability
+                            entropies[l_idx, j, i, k],  # Entropy value
+                        ]
+                    )
 
     # Convert to numpy array
     data_array = np.array(data_list)
 
     # Save with header
     header = "L,timestep,circuit_num,probability,entropy"
-    np.savetxt("entropies_structured_pbc.csv", data_array, fmt='%d,%d,%d,%.6f,%.6f', 
-            delimiter=',', header=header, comments='')
+    np.savetxt(
+        "entropies_structured_pbc.csv", data_array, fmt="%d,%d,%d,%.6f,%.6f", delimiter=",", header=header, comments=""
+    )
