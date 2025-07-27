@@ -3,7 +3,15 @@ from numpy.typing import ArrayLike
 
 
 class State:
+    """Quantum state representation for many-body systems."""
+    
     def __init__(self, L: int, array: ArrayLike | None = None) -> None:
+        """Initialize a quantum state.
+        
+        Args:
+            L: Number of sites in the system
+            array: Optional state vector (defaults to all-zero state)
+        """
         self.dim = 2**L
         self.L = L
         if array is None:
@@ -21,7 +29,14 @@ class State:
         self.array[0] = 1  # |00...0⟩ state
 
     def entanglement_entropy(self, subsystem_size: int | None = None) -> float:
-        """Calculate von Neumann entanglement entropy for a bipartition"""
+        """Calculate von Neumann entanglement entropy for a bipartition.
+        
+        Args:
+            subsystem_size: Size of subsystem A (defaults to L//2)
+            
+        Returns:
+            Von Neumann entropy in bits (base-2 logarithm)
+        """
         if subsystem_size is None:
             subsystem_size = self.L // 2
 

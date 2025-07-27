@@ -6,6 +6,8 @@ from src.state import State
 
 
 class Circuit:
+    """Quantum circuit for many-body physics simulations with random measurements."""
+    
     def __init__(
         self,
         L: int,
@@ -13,6 +15,14 @@ class Circuit:
         initial_state: State | None = None,
         random_seed: int = 42,
     ) -> None:
+        """Initialize the quantum circuit.
+        
+        Args:
+            L: Number of sites in the system
+            p: Probability of measurement at each site
+            initial_state: Initial quantum state (defaults to all-zero state)
+            random_seed: Seed for random number generation
+        """
         self.L = L
         self.dim = 2**L
         self.p = p
@@ -23,6 +33,16 @@ class Circuit:
             self.state = deepcopy(initial_state)
 
     def apply_gate(self, U: NDArray, r: int, unitary: bool = True) -> NDArray:
+        """Apply a quantum gate to the state at position r.
+        
+        Args:
+            U: Unitary operator to apply
+            r: Starting site position for the gate
+            unitary: Whether to normalize the result (False for measurements)
+            
+        Returns:
+            Updated state array
+        """
         l = len(U.shape) // 2
         if r == self.L - 1 and l == 2:
             # Special case for the last site
@@ -38,13 +58,25 @@ class Circuit:
         return intermediate_op / np.linalg.norm(intermediate_op)
 
     def site_expectation_value(self, op: NDArray, site: int) -> float:
-        """Calculate expectation value of a local operator."""
+        """Calculate expectation value of a local operator.
+        
+        Args:
+            op: Local operator to compute expectation value for
+            site: Site index where to apply the operator
+            
+        Returns:
+            Real expectation value
+        """
         expectation_right = self.apply_gate(op, site, unitary=True)
         expectation_left = np.vdot(self.state.array, expectation_right)
         return np.real_if_close(expectation_left)
 
     def apply_random_sigz_measurement(self) -> None:
-        """Apply random projective measurements on the sites with a probability p."""
+        """Apply random projective measurements in the Z-basis.
+        
+        Each site is measured with probability p. The measurement outcome
+        is determined probabilistically based on the expectation value of σz.
+        """
         sigz = np.array([[1, 0], [0, -1]])
         mask = np.random.rand(self.L) < self.p
         sites = np.where(mask)[0]
@@ -57,8 +89,15 @@ class Circuit:
 
     def full_circuit_evolution(self, t: int) -> None:
         """Perform full circuit evolution for t time steps.
-        This method applies the unitary operator U to pairs of sites and performs
-        random measurements on the sites with a probability p.
+        
+        Each time step consists of:
+        1. Apply random 2-qubit gates to even pairs of sites
+        2. Apply random measurements with probability p
+        3. Apply random 2-qubit gates to odd pairs of sites  
+        4. Apply random measurements with probability p
+        
+        Args:
+            t: Number of time steps to evolve
         """
         for _ in range(t):
             U_random = scipy.stats.unitary_group(dim=4).rvs()
